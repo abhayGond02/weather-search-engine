@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Weather Search</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --sky-deep:    #0a1628;
+      --sky-mid:     #0f2a52;
+      --sky-light:   #1a4a8a;
+      --accent:      #f0a500;
+      --accent-soft: #fcd36a;
+      --white:       #ffffff;
+      --white-80:    rgba(255,255,255,0.80);
+      --white-50:    rgba(255,255,255,0.50);
+      --white-15:    rgba(255,255,255,0.15);
+      --white-08:    rgba(255,255,255,0.08);
+      --card-bg:     rgba(255,255,255,0.07);
+      --card-border: rgba(255,255,255,0.12);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'DM Sans', sans-serif;
+      background: var(--sky-deep);
+      color: var(--white);
+      overflow-x: hidden;
+    }
+
+    /* ── animated sky background ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 20% 10%, #1a5ba8 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 80%, #0a3a6e 0%, transparent 60%),
+        linear-gradient(160deg, #0a1628 0%, #0f2a52 50%, #0a1628 100%);
+      z-index: 0;
+      animation: skyShift 12s ease-in-out infinite alternate;
+    }
+
+    @keyframes skyShift {
+      0%   { opacity: 1; }
+      100% { background:
+        radial-gradient(ellipse 80% 60% at 70% 20%, #1a4a8a 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 30% 70%, #0c3060 0%, transparent 60%),
+        linear-gradient(160deg, #0a1628 0%, #0f2a52 50%, #0a1628 100%);
+        opacity: 1;
+      }
+    }
+
+    /* ── stars ── */
+    .stars {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .star {
+      position: absolute;
+      background: white;
+      border-radius: 50%;
+      animation: twinkle var(--dur) ease-in-out infinite alternate;
+    }
+    @keyframes twinkle {
+      0%   { opacity: 0.1; }
+      100% { opacity: 0.7; }
+    }
+
+    /* ── layout ── */
+    .page {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 60px 20px 80px;
+    }
+
+    /* ── header ── */
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+      animation: fadeUp 0.7s ease both;
+    }
+    .header-eyebrow {
+      font-size: 11px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--accent-soft);
+      margin-bottom: 14px;
+      font-weight: 500;
+    }
+    .header h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(38px, 6vw, 64px);
+      font-weight: 400;
+      line-height: 1.05;
+      color: var(--white);
+      letter-spacing: -0.5px;
+    }
+    .header h1 em {
+      font-style: italic;
+      color: var(--accent-soft);
+    }
+    .header-sub {
+      margin-top: 14px;
+      font-size: 15px;
+      color: var(--white-50);
+      font-weight: 300;
+    }
+
+    /* ── search box ── */
+    .search-wrap {
+      width: 100%;
+      max-width: 520px;
+      margin-bottom: 36px;
+      animation: fadeUp 0.7s 0.15s ease both;
+    }
+    .search-box {
+      display: flex;
+      align-items: center;
+      background: var(--white-08);
+      border: 1px solid var(--card-border);
+      border-radius: 60px;
+      padding: 6px 6px 6px 24px;
+      backdrop-filter: blur(20px);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .search-box:focus-within {
+      border-color: rgba(240,165,0,0.5);
+      box-shadow: 0 0 0 3px rgba(240,165,0,0.12);
+    }
+    .search-box input {
+      flex: 1;
+      background: none;
+      border: none;
+      outline: none;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 16px;
+      color: var(--white);
+      font-weight: 300;
+    }
+    .search-box input::placeholder { color: var(--white-50); }
+    .search-btn {
+      background: var(--accent);
+      color: var(--sky-deep);
+      border: none;
+      border-radius: 50px;
+      padding: 12px 28px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.15s;
+      white-space: nowrap;
+    }
+    .search-btn:hover  { background: var(--accent-soft); }
+    .search-btn:active { transform: scale(0.97); }
+
+    /* ── error ── */
+    .error-msg {
+      width: 100%;
+      max-width: 520px;
+      background: rgba(220, 60, 60, 0.15);
+      border: 1px solid rgba(220,60,60,0.3);
+      color: #ff9090;
+      border-radius: 14px;
+      padding: 14px 20px;
+      font-size: 14px;
+      text-align: center;
+      display: none;
+      animation: fadeUp 0.3s ease both;
+      margin-bottom: 20px;
+    }
+    .error-msg.visible { display: block; }
+
+    /* ── weather card ── */
+    .weather-card {
+      width: 100%;
+      max-width: 520px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 28px;
+      backdrop-filter: blur(24px);
+      padding: 36px 36px 32px;
+      display: none;
+      animation: fadeUp 0.45s ease both;
+    }
+    .weather-card.visible { display: block; }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 28px;
+    }
+    .city-label {
+      font-size: 13px;
+      color: var(--white-50);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    .city-name {
+      font-family: 'DM Serif Display', serif;
+      font-size: 32px;
+      color: var(--white);
+      line-height: 1.1;
+    }
+    .weather-icon {
+      font-size: 56px;
+      line-height: 1;
+      filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4));
+      animation: floatIcon 4s ease-in-out infinite;
+    }
+    @keyframes floatIcon {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-8px); }
+    }
+
+    .temp-row {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .temp-main {
+      font-family: 'DM Serif Display', serif;
+      font-size: 80px;
+      color: var(--white);
+      line-height: 1;
+    }
+    .temp-unit {
+      font-size: 28px;
+      color: var(--white-50);
+      font-weight: 300;
+    }
+    .description {
+      font-size: 16px;
+      color: var(--accent-soft);
+      text-transform: capitalize;
+      font-weight: 300;
+      margin-bottom: 28px;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--white-15);
+      margin-bottom: 24px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+    .stat {
+      background: var(--white-08);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 16px 18px;
+    }
+    .stat-label {
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--white-50);
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+    .stat-value {
+      font-family: 'DM Serif Display', serif;
+      font-size: 26px;
+      color: var(--white);
+    }
+    .stat-unit {
+      font-size: 13px;
+      color: var(--white-50);
+      font-weight: 300;
+      margin-left: 2px;
+    }
+
+    /* ── cache badge ── */
+    .cache-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 20px;
+      font-size: 12px;
+      color: var(--white-50);
+      font-weight: 400;
+    }
+    .cache-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #4caf8a;
+      animation: pulse 2s infinite;
+    }
+    .cache-dot.api { background: var(--accent); animation: none; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    /* ── loading spinner ── */
+    .loader {
+      width: 100%;
+      max-width: 520px;
+      text-align: center;
+      padding: 40px 0;
+      display: none;
+    }
+    .loader.visible { display: block; }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 2px solid var(--white-15);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto 14px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loader p { font-size: 14px; color: var(--white-50); font-weight: 300; }
+
+    /* ── recent searches ── */
+    .recent-wrap {
+      width: 100%;
+      max-width: 520px;
+      margin-top: 28px;
+      animation: fadeUp 0.7s 0.3s ease both;
+    }
+    .recent-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--white-50);
+      margin-bottom: 12px;
+      font-weight: 500;
+    }
+    .recent-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .chip {
+      background: var(--white-08);
+      border: 1px solid var(--card-border);
+      color: var(--white-80);
+      font-size: 13px;
+      padding: 7px 16px;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .chip:hover {
+      background: var(--white-15);
+      border-color: rgba(255,255,255,0.25);
+    }
+
+    /* ── animations ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── footer ── */
+    .footer {
+      margin-top: 60px;
+      font-size: 12px;
+      color: var(--white-50);
+      text-align: center;
+      font-weight: 300;
+    }
+    .footer span { color: var(--accent-soft); }
+  </style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+
+<div class="page">
+
+  <header class="header">
+    <p class="header-eyebrow">Spring Boot + Caffeine Cache</p>
+    <h1>Know your <em>weather,</em><br>anywhere.</h1>
+    <p class="header-sub">Real-time data · Cached for speed · Built with Java</p>
+  </header>
+
+  <div class="search-wrap">
+    <div class="search-box">
+      <input type="text" id="city-input" placeholder="Enter city name…" autocomplete="off" />
+      <button class="search-btn" onclick="search()">Search</button>
+    </div>
+  </div>
+
+  <div class="error-msg" id="error-msg">
+    City not found. Please check the spelling and try again.
+  </div>
+
+  <div class="loader" id="loader">
+    <div class="spinner"></div>
+    <p>Fetching weather data…</p>
+  </div>
+
+  <div class="weather-card" id="weather-card">
+    <div class="card-top">
+      <div>
+        <p class="city-label">Current weather</p>
+        <p class="city-name" id="res-city">—</p>
+      </div>
+      <div class="weather-icon" id="res-icon">🌤️</div>
+    </div>
+
+    <div class="temp-row">
+      <span class="temp-main" id="res-temp">—</span>
+      <span class="temp-unit">°C</span>
+    </div>
+    <p class="description" id="res-desc">—</p>
+
+    <div class="divider"></div>
+
+    <div class="stats-grid">
+      <div class="stat">
+        <p class="stat-label">Humidity</p>
+        <p class="stat-value"><span id="res-humidity">—</span><span class="stat-unit">%</span></p>
+      </div>
+      <div class="stat">
+        <p class="stat-label">Wind Speed</p>
+        <p class="stat-value"><span id="res-wind">—</span><span class="stat-unit">m/s</span></p>
+      </div>
+    </div>
+
+    <p class="cache-badge">
+      <span class="cache-dot" id="cache-dot"></span>
+      <span id="cache-label">Served from cache</span>
+    </p>
+  </div>
+
+  <div class="recent-wrap" id="recent-wrap" style="display:none;">
+    <p class="recent-label">Recent searches</p>
+    <div class="recent-chips" id="recent-chips"></div>
+  </div>
+
+  <footer class="footer">
+    Powered by <span>OpenWeather API</span> · Cached with <span>Caffeine (TTL 10 min)</span>
+  </footer>
+
+</div>
+
+<script>
+  /* ── generate stars ── */
+  const starsEl = document.getElementById('stars');
+  for (let i = 0; i < 120; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = Math.random() * 2 + 1;
+    s.style.cssText = `
+      width:${size}px; height:${size}px;
+      top:${Math.random()*100}%;
+      left:${Math.random()*100}%;
+      --dur:${(Math.random()*3+2).toFixed(1)}s;
+      animation-delay:${(Math.random()*4).toFixed(1)}s;
+    `;
+    starsEl.appendChild(s);
+  }
+
+  /* ── weather icon map ── */
+  const iconMap = {
+    clear: '☀️', clouds: '☁️', rain: '🌧️',
+    drizzle: '🌦️', thunderstorm: '⛈️', snow: '❄️',
+    mist: '🌫️', fog: '🌫️', haze: '🌫️', smoke: '🌫️',
+    dust: '💨', sand: '💨', tornado: '🌪️'
+  };
+  function getIcon(desc) {
+    const d = desc.toLowerCase();
+    for (const [key, icon] of Object.entries(iconMap)) {
+      if (d.includes(key)) return icon;
+    }
+    return '🌤️';
+  }
+
+  /* ── recent searches ── */
+  let recent = JSON.parse(localStorage.getItem('wx_recent') || '[]');
+  function addRecent(city) {
+    recent = [city, ...recent.filter(c => c.toLowerCase() !== city.toLowerCase())].slice(0, 6);
+    localStorage.setItem('wx_recent', JSON.stringify(recent));
+    renderRecent();
+  }
+  function renderRecent() {
+    const wrap = document.getElementById('recent-wrap');
+    const chips = document.getElementById('recent-chips');
+    if (recent.length === 0) { wrap.style.display = 'none'; return; }
+    wrap.style.display = 'block';
+    chips.innerHTML = recent.map(c =>
+      `<button class="chip" onclick="searchCity('${c}')">${c}</button>`
+    ).join('');
+  }
+  renderRecent();
+
+  /* ── search ── */
+  const BASE = 'http://localhost:8080';
+  let lastFromCache = false;
+
+  document.getElementById('city-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') search();
+  });
+
+  function search() {
+    const city = document.getElementById('city-input').value.trim();
+    if (!city) return;
+    searchCity(city);
+  }
+
+  async function searchCity(city) {
+    document.getElementById('city-input').value = city;
+    hide('weather-card'); hide('error-msg');
+    show('loader');
+
+    const start = Date.now();
+    try {
+      const res = await fetch(`${BASE}/weather?city=${encodeURIComponent(city)}`);
+      const elapsed = Date.now() - start;
+
+      if (!res.ok) throw new Error('not found');
+      const data = await res.json();
+
+      document.getElementById('res-city').textContent    = data.city;
+      document.getElementById('res-temp').textContent    = Math.round(data.temperature);
+      document.getElementById('res-desc').textContent    = data.description;
+      document.getElementById('res-humidity').textContent = data.humidity;
+      document.getElementById('res-wind').textContent    = data.windSpeed;
+      document.getElementById('res-icon').textContent    = getIcon(data.description);
+
+      /* cache indicator: responses <80ms are likely from cache */
+      const fromCache = elapsed < 80;
+      const dot   = document.getElementById('cache-dot');
+      const label = document.getElementById('cache-label');
+      if (fromCache) {
+        dot.className   = 'cache-dot';
+        label.textContent = `Served from cache · ${elapsed}ms`;
+      } else {
+        dot.className   = 'cache-dot api';
+        label.textContent = `Fetched from API · ${elapsed}ms`;
+      }
+
+      hide('loader'); show('weather-card'); addRecent(data.city);
+
+    } catch (e) {
+      hide('loader'); show('error-msg');
+    }
+  }
+
+  function show(id) { document.getElementById(id).classList.add('visible'); document.getElementById(id).style.display=''; }
+  function hide(id) { document.getElementById(id).classList.remove('visible'); }
+</script>
+
+</body>
+</html>
